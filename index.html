@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>3D Model with model-viewer</title>
     <style>
         body {
@@ -12,18 +12,21 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow: hidden; /* Prevent bouncing on iOS */
         }
         
         #model-container {
             flex: 1;
             width: 100%;
             min-height: 500px;
+            position: relative; /* For loading indicator */
         }
         
         model-viewer {
             width: 100%;
             height: 100%;
             background-color: #f5f5f5;
+            --poster-color: transparent;
         }
         
         .controls {
@@ -43,6 +46,7 @@
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
+            -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
         }
         
         button:hover {
@@ -54,13 +58,47 @@
             padding: 8px;
             min-width: 200px;
         }
+        
+        .loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(255,255,255,0.8);
+            z-index: 10;
+        }
+        
+        /* Responsive adjustments for mobile */
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+            }
+            
+            #model-url {
+                width: 100%;
+            }
+            
+            button {
+                width: 100%;
+            }
+        }
     </style>
+    <!-- Preload the model for better mobile performance -->
+    <link rel="preload" href="https://cdn.shopify.com/3d/models/32408103c250bc8f/AeroMeshGLB.glb" as="fetch" crossorigin="anonymous">
+    
     <!-- Import the model-viewer component -->
-    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <script type="module" src="https://unpkg.com/@google/model-viewer@2.0.1/dist/model-viewer.min.js"></script>
 </head>
 <body>
     <div id="model-container">
-        <!-- model-viewer component with initial attributes -->
+        <!-- Add a loading indicator -->
+        <div id="loading" class="loading">Loading 3D Model...</div>
+        
+        <!-- model-viewer component with optimized attributes for mobile -->
         <model-viewer
             id="mv"
             src="https://cdn.shopify.com/3d/models/32408103c250bc8f/AeroMeshGLB.glb"
@@ -68,6 +106,10 @@
             shadow-intensity="1"
             camera-controls
             auto-rotate
+            touch-action="pan-y"
+            interaction-prompt="none"
+            loading="eager"
+            reveal="auto"
             ar-status="not-presenting">
         </model-viewer>
     </div>
@@ -88,8 +130,21 @@
         document.addEventListener('DOMContentLoaded', function() {
             const modelViewer = document.getElementById('mv');
             const modelUrl = document.getElementById('model-url');
+            const loadingEl = document.getElementById('loading');
             let isRotating = true;
             let hasShadows = true;
+            
+            // Hide loading screen when model loads
+            modelViewer.addEventListener('load', function() {
+                console.log('Model loaded successfully');
+                loadingEl.style.display = 'none';
+            });
+            
+            // Show loading when starting to load
+            modelViewer.addEventListener('progress', function(event) {
+                loadingEl.style.display = 'flex';
+                loadingEl.textContent = `Loading 3D Model: ${Math.floor(event.detail.totalProgress * 100)}%`;
+            });
             
             // Check if AR is supported
             modelViewer.addEventListener('ar-status', (event) => {
@@ -104,6 +159,8 @@
             document.getElementById('load-model').addEventListener('click', function() {
                 const url = modelUrl.value.trim();
                 if (url) {
+                    loadingEl.style.display = 'flex';
+                    loadingEl.textContent = 'Loading 3D Model...';
                     modelViewer.src = url;
                 }
             });
@@ -130,13 +187,14 @@
             // Handle model loading errors
             modelViewer.addEventListener('error', function(event) {
                 console.error('Error loading model:', event);
+                loadingEl.textContent = 'Error loading the 3D model. Please check the URL and try again.';
                 alert('Error loading the 3D model. Please check the URL and try again.');
             });
             
-            // Handle model loaded successfully
-            modelViewer.addEventListener('load', function() {
-                console.log('Model loaded successfully');
-            });
+            // Prevent default touch actions on model-viewer for better mobile experience
+            modelViewer.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+            }, {passive: false});
         });
     </script>
 </body>
